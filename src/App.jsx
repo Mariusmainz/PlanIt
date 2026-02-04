@@ -1,293 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function parseDateUTC(value) {
-  if (!value) return null;
-  const [year, month, day] = value.split('-').map(Number);
-  if (!year || !month || !day) return null;
-  return Date.UTC(year, month - 1, day);
-}
-
-function formatDateUTC(ms) {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-function formatMonthDay(isoDate) {
-  const ms = parseDateUTC(isoDate);
-  if (ms === null) return isoDate;
-  return new Date(ms).toLocaleString('en-US', { month: 'short', day: '2-digit' });
-}
-
-function formatMonthLabel(monthKey) {
-  const [year, month] = monthKey.split('-').map(Number);
-  if (!year || !month) return monthKey;
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function dayDiff(startMs, endMs) {
-  return Math.round((endMs - startMs) / DAY_MS);
-}
-
-const initialTasks = [
-  {
-    id: 't1',
-    name: 'Discovery & Goals',
-    start: '2026-02-05',
-    end: '2026-02-08',
-    color: '#f4b740',
-    description: 'Align on scope, define research questions, and clarify deliverables.',
-    sectionId: 's1',
-  },
-  {
-    id: 't2',
-    name: 'Design System',
-    start: '2026-02-07',
-    end: '2026-02-13',
-    color: '#61c0bf',
-    description: 'Create visual language, templates, and key document layouts.',
-    sectionId: 's2',
-  },
-  {
-    id: 't3',
-    name: 'Core Build',
-    start: '2026-02-10',
-    end: '2026-02-21',
-    color: '#61c0bf',
-    description: 'Execute the primary work, experiments, and writing sprints.',
-    sectionId: 's2',
-  },
-  {
-    id: 't4',
-    name: 'Review & QA',
-    start: '2026-02-18',
-    end: '2026-02-24',
-    color: '#b07cf7',
-    description: 'Edit, validate, and prep for final submission.',
-    sectionId: 's3',
-  },
-];
-
-const initialSections = [
-  { id: 's1', name: 'Research', color: '#f4b740' },
-  { id: 's2', name: 'Writing', color: '#61c0bf' },
-  { id: 's3', name: 'Review', color: '#b07cf7' },
-];
-
-const initialMilestones = [
-  {
-    id: 'm1',
-    name: 'Thesis Proposal Due',
-    date: '2026-02-14',
-    color: '#f78883',
-    sectionId: 's1',
-  },
-];
-
-const palette = ['#f4b740', '#61c0bf', '#5b8def', '#f78883', '#b07cf7', '#87c38f'];
-
-function downloadFile({ name, mime, contents }) {
-  const blob = new Blob([contents], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-function buildCsv(tasks) {
-  const header = ['Task', 'Start', 'End', 'Color'];
-  const rows = tasks.map((task) => [task.name, task.start, task.end, task.color]);
-  const escapeCell = (value) => {
-    const text = String(value ?? '');
-    if (/[",\n]/.test(text)) {
-      return `"${text.replaceAll('"', '""')}"`;
-    }
-    return text;
-  };
-  return [header, ...rows].map((row) => row.map(escapeCell).join(',')).join('\n');
-}
-
-function openPrintWindow({ projectName, days, tasks }) {
-  const headerCells = days
-    .map((day, index) => {
-      const label = day.slice(5);
-      const cls = index % 7 === 0 ? 'day major' : 'day';
-      return `<div class="${cls}"><span>${label}</span></div>`;
-    })
-    .join('');
-
-  const rows = tasks
-    .map((task) => {
-      const startMs = parseDateUTC(task.start);
-      const endMs = parseDateUTC(task.end);
-      if (startMs === null || endMs === null) return '';
-      const startIndexRaw = clamp(dayDiff(parseDateUTC(days[0]), startMs), 0, days.length - 1);
-      const endIndexRaw = clamp(dayDiff(parseDateUTC(days[0]), endMs), 0, days.length - 1);
-      const startIndex = Math.min(startIndexRaw, endIndexRaw);
-      const endIndex = Math.max(startIndexRaw, endIndexRaw);
-      const left = (startIndex / days.length) * 100;
-      const width = ((endIndex - startIndex + 1) / days.length) * 100;
-
-      return `
-        <div class="row">
-          <div class="label">
-            <span class="dot" style="background:${task.color}"></span>
-            <div>
-              <div class="name">${task.name}</div>
-              <div class="dates">${task.start} → ${task.end}</div>
-            </div>
-          </div>
-          <div class="track">
-            <div class="bar" style="left:${left}%;width:${width}%;background:${task.color}">
-              <span>${task.name}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    })
-    .join('');
-
-  const html = `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>${projectName} — Gantt Export</title>
-        <style>
-          * { box-sizing: border-box; }
-          body {
-            margin: 32px;
-            font-family: "Space Grotesk", Arial, sans-serif;
-            color: #1c1a17;
-          }
-          h1 {
-            font-family: "Fraunces", Georgia, serif;
-            margin: 0 0 16px;
-          }
-          .meta { color: #5f5a55; margin-bottom: 24px; }
-          .grid {
-            border: 1px solid #e4dcd2;
-            border-radius: 14px;
-            overflow: hidden;
-          }
-          .header {
-            display: grid;
-            grid-template-columns: 260px 1fr;
-            background: #fff7ee;
-            border-bottom: 1px solid #e4dcd2;
-          }
-          .head-left {
-            padding: 12px 16px;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            color: #5f5a55;
-            font-weight: 600;
-            border-right: 1px solid #e4dcd2;
-          }
-          .head-days {
-            display: grid;
-            grid-template-columns: repeat(${days.length}, minmax(20px, 1fr));
-          }
-          .day {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            color: #7a736b;
-            border-right: 1px solid #f0e7db;
-          }
-          .day.major { color: #1c1a17; font-weight: 600; }
-          .row {
-            display: grid;
-            grid-template-columns: 260px 1fr;
-            border-bottom: 1px solid #f0e7db;
-            min-height: 54px;
-          }
-          .label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 16px;
-            border-right: 1px solid #f0e7db;
-            background: #fffdf9;
-          }
-          .name { font-weight: 600; }
-          .dates { font-size: 11px; color: #7a736b; }
-          .dot { width: 10px; height: 10px; border-radius: 999px; }
-          .track {
-            position: relative;
-            background-image: linear-gradient(
-              to right,
-              rgba(0,0,0,0.06) 1px,
-              transparent 1px
-            );
-            background-size: calc(100% / ${days.length}) 100%;
-          }
-          .bar {
-            position: absolute;
-            top: 12px;
-            height: 30px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            padding: 0 12px;
-            color: #fff;
-            font-size: 12px;
-            font-weight: 600;
-          }
-          @media print {
-            body { margin: 12mm; }
-          }
-        </style>
-      </head>
-      <body>
-        <h1>${projectName}</h1>
-        <div class="meta">Gantt export • ${new Date().toLocaleString()}</div>
-        <div class="grid">
-          <div class="header">
-            <div class="head-left">Tasks</div>
-            <div class="head-days">${headerCells}</div>
-          </div>
-          ${rows}
-        </div>
-      </body>
-    </html>
-  `;
-
-  const printWindow = window.open('', '_blank', 'width=1200,height=800');
-  if (!printWindow) return;
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.onload = () => {
-    printWindow.print();
-  };
-}
+import ControlPanel from './components/ControlPanel';
+import MilestoneDetailPanel from './components/MilestoneDetailPanel';
+import TaskDetailPanel from './components/TaskDetailPanel';
+import { initialMilestones, initialSections, initialTasks, palette } from './data/initialData';
+import {
+  DAY_MS,
+  clamp,
+  dayDiff,
+  formatDateUTC,
+  formatMonthDay,
+  formatMonthLabel,
+  parseDateUTC,
+} from './utils/date';
+import { buildCsv, downloadFile, openPrintWindow } from './utils/exporters';
 
 export default function App() {
   const [projectName, setProjectName] = useState('PlanIt');
+  const [projectSubtitle, setProjectSubtitle] = useState('Thesis roadmap and milestones');
   const [tasks, setTasks] = useState(initialTasks);
   const [sections, setSections] = useState(initialSections);
   const [selectedId, setSelectedId] = useState(null);
   const [paddingDays, setPaddingDays] = useState(3);
   const [exportFormat, setExportFormat] = useState('json');
-  const [viewMode, setViewMode] = useState('day');
-  const [projectDescription, setProjectDescription] = useState(
-    'Outline the thesis objectives, methodology, and expected outcomes.'
-  );
-  const [projectNotes, setProjectNotes] = useState(
-    'Keep track of advisor feedback, key sources, and checkpoints.'
-  );
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [autoFit, setAutoFit] = useState(false);
   const [offDays, setOffDays] = useState(['2026-02-09', '2026-02-16']);
   const [offWeekdays, setOffWeekdays] = useState([6]);
   const [milestones, setMilestones] = useState(initialMilestones);
@@ -318,10 +55,21 @@ export default function App() {
   const [newSectionColor, setNewSectionColor] = useState(palette[0]);
   const [newOffDay, setNewOffDay] = useState(formatDateUTC(Date.now()));
   const [controlTab, setControlTab] = useState('tasks');
+  const [isControlPanelOpen, setIsControlPanelOpen] = useState(false);
+  const [newTaskMode, setNewTaskMode] = useState('end');
+  const [newTaskDuration, setNewTaskDuration] = useState(3);
+  const [rowHeight, setRowHeight] = useState(56);
+  const titleRef = useRef(null);
+  const subtitleRef = useRef(null);
 
   const timelineRef = useRef(null);
   const [timelineWidth, setTimelineWidth] = useState(0);
+  const ganttViewportRef = useRef(null);
+  const ganttRef = useRef(null);
   const dragState = useRef(null);
+  const lastDragRef = useRef({ id: null, ts: 0 });
+  const listDragRef = useRef(null);
+  const [dragOver, setDragOver] = useState(null);
 
   const { rangeStartMs, rangeEndMs, days } = useMemo(() => {
     const todayMs = parseDateUTC(formatDateUTC(Date.now()));
@@ -357,74 +105,17 @@ export default function App() {
     };
   }, [tasks, milestones, paddingDays]);
 
+  const cellWidth = useMemo(() => 40 * zoom, [zoom]);
+
   const timelineSegments = useMemo(() => {
-    if (viewMode === 'day') {
-      return days.map((day, index) => ({
-        id: day,
-        label: day.slice(8),
-        span: 1,
-        major: index % 7 === 0,
-      }));
-    }
-
-    if (viewMode === 'week') {
-      const segments = [];
-      for (let index = 0; index < days.length; index += 7) {
-        segments.push({
-          id: `week-${index}`,
-          label: formatMonthDay(days[index]),
-          span: Math.min(7, days.length - index),
-          major: true,
-        });
-      }
-      return segments;
-    }
-
-    const segments = [];
-    let cursor = 0;
-    while (cursor < days.length) {
-      const monthKey = days[cursor].slice(0, 7);
-      let span = 1;
-      for (let i = cursor + 1; i < days.length; i += 1) {
-        if (days[i].slice(0, 7) !== monthKey) break;
-        span += 1;
-      }
-      segments.push({
-        id: `month-${monthKey}-${cursor}`,
-        label: formatMonthLabel(monthKey),
-        span,
-        major: true,
-      });
-      cursor += span;
-    }
-    return segments;
-  }, [days, viewMode]);
-
-  const headerSegments = useMemo(() => {
-    if (viewMode === 'day') {
-      return days.map((day, index) => ({
-        id: `day-${day}`,
-        label: day.slice(8),
-        major: index % 7 === 0,
-      }));
-    }
-    if (viewMode === 'week') {
-      const segments = [];
-      for (let index = 0; index < days.length; index += 7) {
-        segments.push({
-          id: `week-header-${index}`,
-          label: formatMonthDay(days[index]),
-          major: true,
-        });
-      }
-      return segments;
-    }
-    return timelineSegments.map((segment, index) => ({
-      id: `month-header-${segment.id}`,
-      label: segment.label,
-      major: index === 0 || segment.label !== timelineSegments[index - 1]?.label,
+    return days.map((day, index) => ({
+      id: day,
+      label: day.slice(8),
+      span: 1,
+      major: index % 7 === 0,
+      startIndex: index,
     }));
-  }, [days, timelineSegments, viewMode]);
+  }, [days]);
 
   const dayToSegment = useMemo(() => {
     const map = [];
@@ -471,6 +162,36 @@ export default function App() {
     return segments;
   }, [days]);
 
+  const headerSegments = useMemo(() => {
+    let step = 1;
+    if (cellWidth < 10) step = 4;
+    else if (cellWidth < 14) step = 3;
+    else if (cellWidth < 18) step = 2;
+    return days.map((day, index) => ({
+      id: `day-${day}`,
+      label: index % step === 0 ? day.slice(8) : '',
+      major: index % 7 === 0,
+      span: 1,
+    }));
+  }, [days, cellWidth]);
+
+  const weekHeaderSegments = useMemo(() => {
+    const segments = [];
+    const showFull = cellWidth * 7 >= 64;
+    for (let index = 0; index < days.length; index += 7) {
+      const weekNumber = Math.floor(index / 7) + 1;
+      segments.push({
+        id: `week-header-${index}`,
+        label: showFull ? `Week ${weekNumber}` : `${weekNumber}`,
+        major: true,
+        span: Math.min(7, days.length - index),
+      });
+    }
+    return segments;
+  }, [days, cellWidth]);
+
+  const monthHeaderSegments = useMemo(() => monthSegments, [monthSegments]);
+
   useEffect(() => {
     if (selectedId && !tasks.find((task) => task.id === selectedId)) {
       setSelectedId(null);
@@ -491,6 +212,77 @@ export default function App() {
   }, [days.length]);
 
   useEffect(() => {
+    if (!titleRef.current) return;
+    titleRef.current.style.height = 'auto';
+    titleRef.current.style.height = `${titleRef.current.scrollHeight}px`;
+  }, [projectName]);
+
+  useEffect(() => {
+    if (!subtitleRef.current) return;
+    subtitleRef.current.style.height = 'auto';
+    subtitleRef.current.style.height = `${subtitleRef.current.scrollHeight}px`;
+  }, [projectSubtitle]);
+
+  useEffect(() => {
+    if (!autoFit) return;
+    const baseWidth = days.length * 40;
+    const containerWidth = ganttViewportRef.current?.clientWidth || 0;
+    if (!baseWidth || !containerWidth) return;
+    const nextZoom = clamp(containerWidth / baseWidth, 0.05, 4);
+    setZoom(Number(nextZoom.toFixed(2)));
+  }, [autoFit, days.length, timelineWidth]);
+
+  useEffect(() => {
+    const target = ganttViewportRef.current;
+    if (!target) return;
+    const handleWheel = (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const delta = event.deltaY > 0 ? -0.1 : 0.1;
+      setAutoFit(false);
+      setZoom((prev) => clamp(Number((prev + delta).toFixed(2)), 0.05, 4));
+    };
+    target.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      target.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const target = ganttRef.current;
+    if (!target) return;
+    const handleWheel = (event) => {
+      if (!event.altKey) return;
+      event.preventDefault();
+      const delta = event.deltaY > 0 ? -4 : 4;
+      setRowHeight((prev) => clamp(prev + delta, 40, 92));
+    };
+    target.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      target.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      if (event.key === '+' || event.key === '=' || event.key === '-') {
+        event.preventDefault();
+        const delta = event.key === '-' ? -0.1 : 0.1;
+        setAutoFit(false);
+        setZoom((prev) => clamp(Number((prev + delta).toFixed(2)), 0.05, 4));
+      }
+      if (event.key === '0') {
+        event.preventDefault();
+        setAutoFit(false);
+        setZoom(1);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  useEffect(() => {
     const handleMove = (event) => {
       if (!dragState.current) return;
       if (!timelineWidth || days.length === 0) return;
@@ -499,6 +291,7 @@ export default function App() {
       const deltaDays = Math.round((event.clientX - dragState.current.initialX) / dayWidth);
 
       if (deltaDays === dragState.current.lastDelta) return;
+      if (deltaDays !== 0) dragState.current.moved = true;
       dragState.current.lastDelta = deltaDays;
 
       const { id, mode, startIndex, endIndex } = dragState.current;
@@ -526,6 +319,9 @@ export default function App() {
     };
 
     const handleUp = () => {
+      if (dragState.current?.moved) {
+        lastDragRef.current = { id: dragState.current.id, ts: Date.now() };
+      }
       dragState.current = null;
     };
 
@@ -539,8 +335,13 @@ export default function App() {
 
   const addTask = () => {
     const startMs = parseDateUTC(newTask.start);
-    const endMs = parseDateUTC(newTask.end);
-    if (!startMs || !endMs) return;
+    let endMs = parseDateUTC(newTask.end);
+    if (!startMs) return;
+    if (newTaskMode === 'duration') {
+      const duration = Math.max(1, Number(newTaskDuration) || 1);
+      endMs = startMs + (duration - 1) * DAY_MS;
+    }
+    if (!endMs) return;
     const [safeStart, safeEnd] = startMs <= endMs ? [startMs, endMs] : [endMs, startMs];
 
     const id = `t-${Date.now()}-${Math.round(Math.random() * 1000)}`;
@@ -549,7 +350,9 @@ export default function App() {
       name: newTask.name.trim() || 'Untitled task',
       start: formatDateUTC(safeStart),
       end: formatDateUTC(safeEnd),
-      color: sections.find(s => s.id === (newTask.sectionId || sections[0]?.id))?.color || palette[0],
+      color:
+        sections.find((s) => s.id === (newTask.sectionId || sections[0]?.id))?.color ||
+        palette[0],
       description: newTask.description.trim(),
       sectionId: newTask.sectionId || sections[0]?.id || '',
     };
@@ -579,6 +382,24 @@ export default function App() {
 
   const updateTask = (id, patch) => {
     setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, ...patch } : task)));
+  };
+
+  const updateSection = (id, patch) => {
+    setSections((prev) =>
+      prev.map((section) => (section.id === id ? { ...section, ...patch } : section))
+    );
+  };
+
+  const deleteSection = (id) => {
+    setSections((prev) => prev.filter((section) => section.id !== id));
+    setTasks((prev) =>
+      prev.map((task) => (task.sectionId === id ? { ...task, sectionId: '' } : task))
+    );
+    setMilestones((prev) =>
+      prev.map((milestone) =>
+        milestone.sectionId === id ? { ...milestone, sectionId: '' } : milestone
+      )
+    );
   };
 
   const selectTask = (id) => {
@@ -677,6 +498,7 @@ export default function App() {
       endIndex,
       initialX: event.clientX,
       lastDelta: 0,
+      moved: false,
     };
 
     if (event.currentTarget.setPointerCapture) {
@@ -684,10 +506,106 @@ export default function App() {
     }
   };
 
-  const handleExport = () => {
+  const handleBarClick = (taskId) => {
+    const lastDrag = lastDragRef.current;
+    if (lastDrag.id === taskId && Date.now() - lastDrag.ts < 250) return;
+    selectTask(taskId);
+  };
+
+  const moveItemById = (list, id, beforeId) => {
+    const fromIndex = list.findIndex((item) => item.id === id);
+    const toIndex = list.findIndex((item) => item.id === beforeId);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return list;
+    const next = [...list];
+    const [item] = next.splice(fromIndex, 1);
+    const insertIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+    next.splice(insertIndex, 0, item);
+    return next;
+  };
+
+  const moveTaskToSection = (taskId, targetSectionId) => {
+    setTasks((prev) => {
+      const fromIndex = prev.findIndex((task) => task.id === taskId);
+      if (fromIndex < 0) return prev;
+      const next = [...prev];
+      const [task] = next.splice(fromIndex, 1);
+      const sectionColor = sections.find((section) => section.id === targetSectionId)?.color;
+      const updatedTask = {
+        ...task,
+        sectionId: targetSectionId,
+        color: sectionColor || task.color,
+      };
+      let insertIndex = next.length;
+      for (let i = next.length - 1; i >= 0; i -= 1) {
+        if (next[i].sectionId === targetSectionId) {
+          insertIndex = i + 1;
+          break;
+        }
+      }
+      next.splice(insertIndex, 0, updatedTask);
+      return next;
+    });
+  };
+
+  const handleSectionDragStart = (event, section) => {
+    listDragRef.current = { type: 'section', id: section.id };
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleTaskDragStart = (event, task) => {
+    listDragRef.current = { type: 'task', id: task.id, sectionId: task.sectionId };
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleListDragEnd = () => {
+    listDragRef.current = null;
+    setDragOver(null);
+  };
+
+  const handleSectionDrop = (event, section) => {
+    event.preventDefault();
+    const drag = listDragRef.current;
+    if (!drag) return;
+    const targetSectionId = section.id === 'unassigned' ? '' : section.id;
+    if (drag.type === 'section') {
+      if (drag.id === section.id) return;
+      setSections((prev) => moveItemById(prev, drag.id, section.id));
+    } else if (drag.type === 'task') {
+      moveTaskToSection(drag.id, targetSectionId);
+    }
+    listDragRef.current = null;
+    setDragOver(null);
+  };
+
+  const handleTaskDrop = (event, task) => {
+    event.preventDefault();
+    const drag = listDragRef.current;
+    if (!drag || drag.type !== 'task' || drag.id === task.id) return;
+    setTasks((prev) => {
+      const fromIndex = prev.findIndex((entry) => entry.id === drag.id);
+      const toIndex = prev.findIndex((entry) => entry.id === task.id);
+      if (fromIndex < 0 || toIndex < 0) return prev;
+      const next = [...prev];
+      const [movedTask] = next.splice(fromIndex, 1);
+      const targetSectionId = task.sectionId;
+      const sectionColor = sections.find((section) => section.id === targetSectionId)?.color;
+      const updatedTask = {
+        ...movedTask,
+        sectionId: targetSectionId,
+        color: sectionColor || movedTask.color,
+      };
+      const insertIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+      next.splice(insertIndex, 0, updatedTask);
+      return next;
+    });
+    listDragRef.current = null;
+    setDragOver(null);
+  };
+
+  const handleExport = (format = exportFormat) => {
     if (tasks.length === 0) return;
     const baseName = projectName.trim().replace(/\s+/g, '-').toLowerCase() || 'project-plan';
-    if (exportFormat === 'json') {
+    if (format === 'json') {
       const payload = { project: projectName, exportedAt: new Date().toISOString(), tasks, milestones, markers };
       downloadFile({
         name: `${baseName}.json`,
@@ -696,7 +614,7 @@ export default function App() {
       });
       return;
     }
-    if (exportFormat === 'csv') {
+    if (format === 'csv') {
       downloadFile({
         name: `${baseName}.csv`,
         mime: 'text/csv',
@@ -704,7 +622,7 @@ export default function App() {
       });
       return;
     }
-    if (exportFormat === 'tsv') {
+    if (format === 'tsv') {
       const header = ['Task', 'Start', 'End', 'Color'];
       const rows = tasks.map((task) => [task.name, task.start, task.end, task.color]);
       const payload = [header, ...rows].map((row) => row.join('\t')).join('\n');
@@ -714,8 +632,8 @@ export default function App() {
         contents: payload,
       });
     }
-    if (exportFormat === 'pdf') {
-      openPrintWindow({ projectName, days, tasks });
+    if (format === 'pdf') {
+      openPrintWindow({ projectName, projectSubtitle, days, tasks });
     }
   };
 
@@ -728,55 +646,6 @@ export default function App() {
           <p className="sub">
             Drag to move, stretch to resize, and keep your plan clean with automatic formatting.
           </p>
-          <div className="export-row">
-            <div className="view-toggle">
-              <span>View</span>
-              {['day', 'week', 'month'].map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={viewMode === mode ? 'chip active' : 'chip'}
-                  onClick={() => setViewMode(mode)}
-                >
-                  {mode[0].toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
-            </div>
-            <label>
-              Export format
-              <select
-                value={exportFormat}
-                onChange={(event) => setExportFormat(event.target.value)}
-              >
-                <option value="json">JSON</option>
-                <option value="csv">CSV</option>
-                <option value="tsv">TSV</option>
-                <option value="pdf">PDF (print)</option>
-              </select>
-            </label>
-            <button className="primary" type="button" onClick={handleExport}>
-              Export
-            </button>
-          </div>
-        </div>
-        <div className="project-card">
-          <label>
-            Project title
-            <input
-              value={projectName}
-              onChange={(event) => setProjectName(event.target.value)}
-            />
-          </label>
-          <label>
-            Timeline padding (days)
-            <input
-              type="number"
-              min="0"
-              max="30"
-              value={paddingDays}
-              onChange={(event) => setPaddingDays(Number(event.target.value) || 0)}
-            />
-          </label>
           <div className="project-meta">
             <div>
               <span>Tasks</span>
@@ -793,275 +662,78 @@ export default function App() {
               </strong>
             </div>
           </div>
-          <label>
-            Description
-            <textarea
-              rows="3"
-              value={projectDescription}
-              onChange={(event) => setProjectDescription(event.target.value)}
-              placeholder="Describe the project goals, scope, and success criteria."
-            />
-          </label>
-          <label>
-            Notes
-            <textarea
-              rows="3"
-              value={projectNotes}
-              onChange={(event) => setProjectNotes(event.target.value)}
-              placeholder="Capture feedback, sources, or next steps."
-            />
-          </label>
+        </div>
+        <div className="export-panel">
+          <button
+            className="primary"
+            type="button"
+            onClick={() => setIsExportOpen((prev) => !prev)}
+          >
+            Export
+          </button>
+          {isExportOpen && (
+            <div className="export-popover">
+              {[
+                ['json', 'JSON'],
+                ['csv', 'CSV'],
+                ['tsv', 'TSV'],
+                ['pdf', 'PDF (print)'],
+              ].map(([format, label]) => (
+                <button
+                  key={format}
+                  type="button"
+                  className="export-option"
+                  onClick={() => {
+                    setExportFormat(format);
+                    setIsExportOpen(false);
+                    handleExport(format);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
       <section className="panel">
         <div className="panel-head">
-          <h2>{projectName}</h2>
-          <p>Plan, describe, and document your project in one workspace.</p>
-        </div>
-          <div className="toolbar-tabs">
-            {[['tasks', 'Tasks'], ['milestones', 'Milestones'], ['sections', 'Sections'], ['schedule', 'Schedule']].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={controlTab === key ? 'chip active' : 'chip'}
-                onClick={() => setControlTab(key)}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="panel-title">
+            <textarea
+              className="title-input"
+              ref={titleRef}
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              rows={1}
+            />
+            <textarea
+              className="subtitle-input"
+              ref={subtitleRef}
+              value={projectSubtitle}
+              onChange={(event) => setProjectSubtitle(event.target.value)}
+              placeholder="Project subtitle"
+              rows={1}
+            />
           </div>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => {
+              setSelectedId(null);
+              setSelectedMilestoneId(null);
+              setIsControlPanelOpen(true);
+            }}
+          >
+            + Add
+          </button>
+        </div>
 
-          {controlTab === 'tasks' && (
-            <div className="controls">
-              <div className="control">
-                <label>Task name</label>
-                <input
-                  value={newTask.name}
-                  onChange={(event) =>
-                    setNewTask((prev) => ({ ...prev, name: event.target.value }))
-                  }
-                  placeholder="Design sprint"
-                />
-              </div>
-              <div className="control">
-                <label>Start</label>
-                <input
-                  type="date"
-                  value={newTask.start}
-                  onChange={(event) =>
-                    setNewTask((prev) => ({ ...prev, start: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="control">
-                <label>End</label>
-                <input
-                  type="date"
-                  value={newTask.end}
-                  onChange={(event) =>
-                    setNewTask((prev) => ({ ...prev, end: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="control">
-                <label>Section</label>
-                <select
-                  value={newTask.sectionId}
-                  onChange={(event) =>
-                    setNewTask((prev) => ({ ...prev, sectionId: event.target.value }))
-                  }
-                >
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button className="primary" type="button" onClick={addTask}>
-                Add task
-              </button>
-            </div>
-          )}
-
-          {controlTab === 'milestones' && (
-            <div className="controls milestone-controls">
-              <div className="control">
-                <label>Milestone name</label>
-                <input
-                  value={newMilestone.name}
-                  onChange={(event) =>
-                    setNewMilestone((prev) => ({ ...prev, name: event.target.value }))
-                  }
-                  placeholder="Deadline"
-                />
-              </div>
-              <div className="control">
-                <label>Date</label>
-                <input
-                  type="date"
-                  value={newMilestone.date}
-                  onChange={(event) =>
-                    setNewMilestone((prev) => ({ ...prev, date: event.target.value }))
-                  }
-                />
-              </div>
-              <div className="control">
-                <label>Section</label>
-                <select
-                  value={newMilestone.sectionId}
-                  onChange={(event) =>
-                    setNewMilestone((prev) => ({ ...prev, sectionId: event.target.value }))
-                  }
-                >
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button className="primary" type="button" onClick={addMilestone}>
-                Add milestone
-              </button>
-            </div>
-          )}
-
-          {controlTab === 'sections' && (
-            <div className="section-controls">
-              <label>
-                Add section
-                <input
-                  value={newSectionName}
-                  onChange={(event) => setNewSectionName(event.target.value)}
-                  placeholder="Research"
-                />
-              </label>
-              <div className="swatches">
-                {palette.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={newSectionColor === color ? 'swatch active' : 'swatch'}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewSectionColor(color)}
-                  />
-                ))}
-              </div>
-              <button className="ghost" type="button" onClick={addSection}>
-                Add section
-              </button>
-            </div>
-          )}
-
-          {controlTab === 'schedule' && (
-            <>
-              <div className="section-controls">
-                <label>
-                  Off day
-                  <input
-                    type="date"
-                    value={newOffDay}
-                    onChange={(event) => setNewOffDay(event.target.value)}
-                  />
-                </label>
-                <button className="ghost" type="button" onClick={addOffDay}>
-                  Mark off day
-                </button>
-              </div>
-              <div className="weekday-toggle">
-                <span>Recurring off days</span>
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, index) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={offWeekdays.includes(index) ? 'chip active' : 'chip'}
-                    onClick={() =>
-                      setOffWeekdays((prev) =>
-                        prev.includes(index)
-                          ? prev.filter((day) => day !== index)
-                          : [...prev, index]
-                      )
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {offDays.length > 0 && (
-                <div className="offday-list">
-                  {offDays.map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      className="chip"
-                      onClick={() => removeOffDay(day)}
-                    >
-                      {day} ×
-                    </button>
-                  ))}
-                </div>
-              )}
-              <h3 className="schedule-subhead">Day markers</h3>
-              <div className="section-controls">
-                <label>
-                  Label
-                  <input
-                    value={newMarker.label}
-                    onChange={(event) =>
-                      setNewMarker((prev) => ({ ...prev, label: event.target.value }))
-                    }
-                    placeholder="Project deadline"
-                  />
-                </label>
-                <label>
-                  Date
-                  <input
-                    type="date"
-                    value={newMarker.date}
-                    onChange={(event) =>
-                      setNewMarker((prev) => ({ ...prev, date: event.target.value }))
-                    }
-                  />
-                </label>
-                <div className="swatches">
-                  {palette.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={newMarker.color === color ? 'swatch active' : 'swatch'}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setNewMarker((prev) => ({ ...prev, color }))}
-                    />
-                  ))}
-                </div>
-                <button className="ghost" type="button" onClick={addMarker}>
-                  Add marker
-                </button>
-              </div>
-              {markers.length > 0 && (
-                <div className="marker-list">
-                  {markers.map((marker) => (
-                    <button
-                      key={marker.id}
-                      type="button"
-                      className="chip marker-chip"
-                      onClick={() => removeMarker(marker.id)}
-                    >
-                      <span
-                        className="marker-dot"
-                        style={{ backgroundColor: marker.color }}
-                      />
-                      {marker.label} ({marker.date}) ×
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-            <div className="gantt">
+            <div
+              className="gantt"
+              ref={ganttRef}
+              style={{ '--task-row-height': `${rowHeight}px` }}
+            >
               <div className="gantt-left">
                 <div className="gantt-header">Tasks</div>
                 {tasks.length === 0 && milestones.length === 0 ? (
@@ -1069,7 +741,32 @@ export default function App() {
                 ) : (
                   sectionsWithTasks.map((section) => (
                     <div key={section.id}>
-                      <div className="section-row">
+                      <div
+                        className={`section-row list-section-row${
+                          dragOver?.type === 'section' && dragOver.id === section.id
+                            ? ' drop-target'
+                            : ''
+                        }${
+                          dragOver?.type === 'section-reorder' && dragOver.id === section.id
+                            ? ' drop-reorder'
+                            : ''
+                        }`}
+                        draggable={section.id !== 'unassigned'}
+                        onDragStart={(event) =>
+                          section.id === 'unassigned' ? null : handleSectionDragStart(event, section)
+                        }
+                        onDragEnd={handleListDragEnd}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          if (listDragRef.current?.type === 'task') {
+                            setDragOver({ type: 'section', id: section.id });
+                          } else if (listDragRef.current?.type === 'section') {
+                            setDragOver({ type: 'section-reorder', id: section.id });
+                          }
+                        }}
+                        onDragLeave={() => setDragOver((prev) => (prev?.id === section.id ? null : prev))}
+                        onDrop={(event) => handleSectionDrop(event, section)}
+                      >
                         <span className="dot" style={{ backgroundColor: section.color }} />
                         <span>{section.name}</span>
                       </div>
@@ -1077,8 +774,21 @@ export default function App() {
                         <button
                           key={task.id}
                           type="button"
-                          className={task.id === selectedId ? 'task-row active' : 'task-row'}
+                          className={`${task.id === selectedId ? 'task-row active' : 'task-row'}${
+                            dragOver?.type === 'task' && dragOver.id === task.id ? ' drop-target' : ''
+                          }`}
                           onClick={() => selectTask(task.id)}
+                          draggable
+                          onDragStart={(event) => handleTaskDragStart(event, task)}
+                          onDragEnd={handleListDragEnd}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            if (listDragRef.current?.type === 'task') {
+                              setDragOver({ type: 'task', id: task.id });
+                            }
+                          }}
+                          onDragLeave={() => setDragOver((prev) => (prev?.id === task.id ? null : prev))}
+                          onDrop={(event) => handleTaskDrop(event, task)}
                         >
                           <span className="dot" style={{ backgroundColor: task.color }} />
                           <span className="task-text">
@@ -1099,6 +809,8 @@ export default function App() {
                               : 'task-row milestone-row'
                           }
                           onClick={() => selectMilestone(milestone.id)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={handleListDragEnd}
                         >
                           <span className="diamond" style={{ backgroundColor: milestone.color }} />
                           <span className="task-text">
@@ -1112,11 +824,25 @@ export default function App() {
                 )}
               </div>
 
-              <div className="gantt-right">
-                <div className="gantt-timeline" style={{ '--days': days.length }}>
+              <div className="gantt-right" ref={ganttViewportRef}>
+                <div
+                  className="gantt-timeline"
+                  style={{
+                    '--days': days.length,
+                    '--cols': days.length,
+                    '--zoom': zoom,
+                    '--zoom-cols': days.length,
+                  }}
+                >
                 <div className="timeline-header" style={{ '--days': days.length }}>
-                  <div className="month-row" style={{ '--days': days.length }}>
-                    {monthSegments.map((segment) => (
+                  <div
+                    className="month-row"
+                    style={{
+                      '--days': days.length,
+                      '--month-cols': days.length,
+                    }}
+                  >
+                    {monthHeaderSegments.map((segment) => (
                       <div
                         key={segment.id}
                         className="month-cell"
@@ -1126,11 +852,23 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  <div className="day-row" style={{ '--cols': headerSegments.length }}>
+                  <div className="week-row" style={{ '--cols': days.length }}>
+                    {weekHeaderSegments.map((segment) => (
+                      <div
+                        key={segment.id}
+                        className="week-cell"
+                        style={{ gridColumn: `span ${segment.span}` }}
+                      >
+                        <span>{segment.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="day-row" style={{ '--cols': days.length }}>
                     {headerSegments.map((segment) => (
                       <div
                         key={segment.id}
                         className={segment.major ? 'day-cell major' : 'day-cell'}
+                        style={{ gridColumn: `span ${segment.span}` }}
                       >
                         <span>{segment.label}</span>
                       </div>
@@ -1149,7 +887,7 @@ export default function App() {
                   })}
                 </div>
                 <div
-                  className="timeline-body"
+                  className={cellWidth < 14 ? 'timeline-body no-grid' : 'timeline-body'}
                   ref={timelineRef}
                   style={{ '--cols': timelineSegments.length, '--days': days.length }}
                 >
@@ -1200,18 +938,24 @@ export default function App() {
                         const left = (startSegment / timelineSegments.length) * 100;
                         const width =
                           ((endSegment - startSegment + 1) / timelineSegments.length) * 100;
+                        const totalWidth =
+                          timelineRef.current?.scrollWidth || timelineWidth || 0;
+                        const barPixelWidth = (width / 100) * totalWidth;
+                        const showLabel = barPixelWidth >= 80;
 
                         return (
                           <div key={task.id} className="timeline-row">
                             <div
-                              className={task.id === selectedId ? 'bar active' : 'bar'}
+                              className={`${task.id === selectedId ? 'bar active' : 'bar'}${
+                                showLabel ? '' : ' compact'
+                              }`}
                               style={{
                                 left: `${left}%`,
                                 width: `${width}%`,
                                 backgroundColor: task.color,
                               }}
                               onPointerDown={(event) => handleBarPointerDown(event, task, 'move')}
-                              onClick={() => selectTask(task.id)}
+                              onClick={() => handleBarClick(task.id)}
                             >
                               <div
                                 className="handle left"
@@ -1277,156 +1021,69 @@ export default function App() {
             </div>
       </section>
 
-      {selectedTask && (
-        <>
-          <div className="task-detail-overlay" onClick={() => selectTask(null)} />
-          <div className="task-detail-panel">
-            <button
-              className="panel-close"
-              type="button"
-              onClick={() => selectTask(null)}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <h2>Task details</h2>
-            <div className="panel-fields">
-              <label>
-                Name
-                <input
-                  value={selectedTask.name}
-                  onChange={(event) => updateTask(selectedTask.id, { name: event.target.value })}
-                />
-              </label>
-              <label>
-                Start date
-                <input
-                  type="date"
-                  value={selectedTask.start}
-                  onChange={(event) => updateTask(selectedTask.id, { start: event.target.value })}
-                />
-              </label>
-              <label>
-                End date
-                <input
-                  type="date"
-                  value={selectedTask.end}
-                  onChange={(event) => updateTask(selectedTask.id, { end: event.target.value })}
-                />
-              </label>
-              <label>
-                Section
-                <select
-                  value={selectedTask.sectionId || ''}
-                  onChange={(event) => {
-                    const newSectionId = event.target.value;
-                    const sectionColor = sections.find(s => s.id === newSectionId)?.color || palette[0];
-                    updateTask(selectedTask.id, { sectionId: newSectionId, color: sectionColor });
-                  }}
-                >
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Description
-                <textarea
-                  rows="4"
-                  value={selectedTask.description || ''}
-                  onChange={(event) =>
-                    updateTask(selectedTask.id, { description: event.target.value })
-                  }
-                  placeholder="Summarize goals, references, or deliverables for this task."
-                />
-              </label>
-              <button
-                className="ghost danger"
-                type="button"
-                onClick={() => {
-                  setTasks((prev) => prev.filter((task) => task.id !== selectedTask.id));
-                  setSelectedId(null);
-                }}
-              >
-                Delete task
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <ControlPanel
+        isOpen={isControlPanelOpen}
+        onClose={() => setIsControlPanelOpen(false)}
+        controlTab={controlTab}
+        setControlTab={setControlTab}
+        newTask={newTask}
+        setNewTask={setNewTask}
+        newTaskMode={newTaskMode}
+        setNewTaskMode={setNewTaskMode}
+        newTaskDuration={newTaskDuration}
+        setNewTaskDuration={setNewTaskDuration}
+        sections={sections}
+        addTask={addTask}
+        newMilestone={newMilestone}
+        setNewMilestone={setNewMilestone}
+        addMilestone={addMilestone}
+        newSectionName={newSectionName}
+        setNewSectionName={setNewSectionName}
+        newSectionColor={newSectionColor}
+        setNewSectionColor={setNewSectionColor}
+        palette={palette}
+        addSection={addSection}
+        updateSection={updateSection}
+        deleteSection={deleteSection}
+        newOffDay={newOffDay}
+        setNewOffDay={setNewOffDay}
+        paddingDays={paddingDays}
+        setPaddingDays={setPaddingDays}
+        addOffDay={addOffDay}
+        offWeekdays={offWeekdays}
+        setOffWeekdays={setOffWeekdays}
+        offDays={offDays}
+        removeOffDay={removeOffDay}
+        newMarker={newMarker}
+        setNewMarker={setNewMarker}
+        addMarker={addMarker}
+        markers={markers}
+        removeMarker={removeMarker}
+      />
 
-      {selectedMilestone && (
-        <>
-          <div className="task-detail-overlay" onClick={() => setSelectedMilestoneId(null)} />
-          <div className="task-detail-panel">
-            <button
-              className="panel-close"
-              type="button"
-              onClick={() => setSelectedMilestoneId(null)}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <h2>Milestone details</h2>
-            <div className="panel-fields">
-              <label>
-                Name
-                <input
-                  value={selectedMilestone.name}
-                  onChange={(event) =>
-                    updateMilestone(selectedMilestone.id, { name: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Date
-                <input
-                  type="date"
-                  value={selectedMilestone.date}
-                  onChange={(event) =>
-                    updateMilestone(selectedMilestone.id, { date: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Section
-                <select
-                  value={selectedMilestone.sectionId || ''}
-                  onChange={(event) => {
-                    const newSectionId = event.target.value;
-                    const sectionColor =
-                      sections.find((s) => s.id === newSectionId)?.color || palette[0];
-                    updateMilestone(selectedMilestone.id, {
-                      sectionId: newSectionId,
-                      color: sectionColor,
-                    });
-                  }}
-                >
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="ghost danger"
-                type="button"
-                onClick={() => {
-                  setMilestones((prev) =>
-                    prev.filter((m) => m.id !== selectedMilestone.id)
-                  );
-                  setSelectedMilestoneId(null);
-                }}
-              >
-                Delete milestone
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <TaskDetailPanel
+        task={selectedTask}
+        onClose={() => selectTask(null)}
+        updateTask={updateTask}
+        sections={sections}
+        palette={palette}
+        onDelete={() => {
+          setTasks((prev) => prev.filter((task) => task.id !== selectedTask?.id));
+          setSelectedId(null);
+        }}
+      />
+
+      <MilestoneDetailPanel
+        milestone={selectedMilestone}
+        onClose={() => setSelectedMilestoneId(null)}
+        updateMilestone={updateMilestone}
+        sections={sections}
+        palette={palette}
+        onDelete={() => {
+          setMilestones((prev) => prev.filter((m) => m.id !== selectedMilestone?.id));
+          setSelectedMilestoneId(null);
+        }}
+      />
     </div>
   );
 }
