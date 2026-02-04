@@ -4,6 +4,7 @@ import CustomizePanel from './components/CustomizePanel';
 import MilestoneDetailPanel from './components/MilestoneDetailPanel';
 import TaskDetailPanel from './components/TaskDetailPanel';
 import { initialMilestones, initialSections, initialTasks, palette } from './data/initialData';
+import { themePresets } from './data/themePresets';
 import {
   DAY_MS,
   clamp,
@@ -22,297 +23,6 @@ import {
 } from './utils/exporters';
 
 export default function App() {
-  const themePresets = [
-    {
-      id: 'sunset',
-      name: 'Sunset Studio',
-      vars: {
-        '--gantt-font': '"Space Grotesk", system-ui, sans-serif',
-        '--page-font-body': '"Space Grotesk", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#fffefb',
-        '--gantt-left-bg': '#fff9f1',
-        '--gantt-header-bg': '#fffdf8',
-        '--gantt-heading-bg': '#fff3e4',
-        '--gantt-section-bg': 'rgba(255, 227, 198, 0.6)',
-        '--gantt-text': '#1c1a17',
-        '--gantt-muted': '#5f5a55',
-        '--gantt-grid-opacity': 0.06,
-        '--gantt-text-scale': 1,
-        '--gantt-section-scale': 1,
-        '--gantt-bar-radius': '11px',
-        '--page-bg-1': '#ffe7c2',
-        '--page-bg-2': '#ffdfdb',
-        '--page-bg-3': '#fff6ea',
-        '--page-bg-4': '#f1e8dd',
-        '--page-bg-5': '#efe4d6',
-        '--page-text': '#1c1a17',
-        '--page-muted': '#5f5a55',
-        '--page-accent': '#e06d3a',
-        '--panel-bg': '#f8f3ec',
-        '--panel-text': '#1c1a17',
-        '--panel-muted': '#5f5a55',
-        '--panel-input-bg': '#fffdf9',
-      },
-    },
-    {
-      id: 'ink',
-      name: 'Ink & Linen',
-      vars: {
-        '--gantt-font': '"IBM Plex Sans", system-ui, sans-serif',
-        '--page-font-body': '"IBM Plex Sans", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#f8f6f2',
-        '--gantt-left-bg': '#f1eee7',
-        '--gantt-header-bg': '#f9f7f2',
-        '--gantt-heading-bg': '#f0ece4',
-        '--gantt-section-bg': 'rgba(220, 211, 197, 0.7)',
-        '--gantt-text': '#151515',
-        '--gantt-muted': '#5e5b55',
-        '--gantt-grid-opacity': 0.08,
-        '--gantt-text-scale': 0.98,
-        '--gantt-section-scale': 0.98,
-        '--gantt-bar-radius': '8px',
-        '--page-bg-1': '#e7eef8',
-        '--page-bg-2': '#f2efe8',
-        '--page-bg-3': '#f8f5ee',
-        '--page-bg-4': '#efe9de',
-        '--page-bg-5': '#eae1d4',
-        '--page-text': '#151515',
-        '--page-muted': '#5e5b55',
-        '--page-accent': '#3b6ea5',
-        '--panel-bg': '#f3efe7',
-        '--panel-text': '#151515',
-        '--panel-muted': '#5e5b55',
-        '--panel-input-bg': '#fffaf2',
-      },
-    },
-    {
-      id: 'mint',
-      name: 'Mint Graph',
-      vars: {
-        '--gantt-font': '"Work Sans", system-ui, sans-serif',
-        '--page-font-body': '"Work Sans", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#f7fbf9',
-        '--gantt-left-bg': '#eef7f2',
-        '--gantt-header-bg': '#f4faf7',
-        '--gantt-heading-bg': '#e8f5ef',
-        '--gantt-section-bg': 'rgba(212, 241, 229, 0.7)',
-        '--gantt-text': '#16332c',
-        '--gantt-muted': '#4f6a62',
-        '--gantt-grid-opacity': 0.05,
-        '--gantt-text-scale': 1,
-        '--gantt-section-scale': 1,
-        '--gantt-bar-radius': '14px',
-        '--page-bg-1': '#d7f3ea',
-        '--page-bg-2': '#f2efe6',
-        '--page-bg-3': '#f8f6ee',
-        '--page-bg-4': '#eff3e8',
-        '--page-bg-5': '#e7efe3',
-        '--page-text': '#16332c',
-        '--page-muted': '#4f6a62',
-        '--page-accent': '#2a9d8f',
-        '--panel-bg': '#eef6f1',
-        '--panel-text': '#16332c',
-        '--panel-muted': '#4f6a62',
-        '--panel-input-bg': '#f7fbf9',
-      },
-    },
-    {
-      id: 'night',
-      name: 'Midnight Ledger',
-      vars: {
-        '--gantt-font': '"IBM Plex Sans", system-ui, sans-serif',
-        '--page-font-body': '"IBM Plex Sans", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#0f1419',
-        '--gantt-left-bg': '#141b22',
-        '--gantt-header-bg': '#101820',
-        '--gantt-heading-bg': '#18212a',
-        '--gantt-section-bg': 'rgba(30, 42, 52, 0.9)',
-        '--gantt-text': '#f4f7fb',
-        '--gantt-muted': '#a6b2bd',
-        '--gantt-grid-opacity': 0.04,
-        '--gantt-text-scale': 0.98,
-        '--gantt-section-scale': 0.95,
-        '--gantt-bar-radius': '10px',
-        '--page-bg-1': '#0b1117',
-        '--page-bg-2': '#101923',
-        '--page-bg-3': '#0f141a',
-        '--page-bg-4': '#121b24',
-        '--page-bg-5': '#151f2a',
-        '--page-text': '#f4f7fb',
-        '--page-muted': '#b5c0cb',
-        '--page-accent': '#8ab4ff',
-        '--panel-bg': '#141b22',
-        '--panel-text': '#f4f7fb',
-        '--panel-muted': '#b5c0cb',
-        '--panel-input-bg': '#1b2430',
-      },
-    },
-    {
-      id: 'orchid',
-      name: 'Orchid Draft',
-      vars: {
-        '--gantt-font': '"Source Sans 3", system-ui, sans-serif',
-        '--page-font-body': '"Source Sans 3", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#fbf6ff',
-        '--gantt-left-bg': '#f3ecff',
-        '--gantt-header-bg': '#f8f2ff',
-        '--gantt-heading-bg': '#efe3ff',
-        '--gantt-section-bg': 'rgba(230, 214, 255, 0.7)',
-        '--gantt-text': '#2b2137',
-        '--gantt-muted': '#6c5d85',
-        '--gantt-grid-opacity': 0.06,
-        '--gantt-text-scale': 1,
-        '--gantt-section-scale': 1,
-        '--gantt-bar-radius': '16px',
-        '--page-bg-1': '#efe2ff',
-        '--page-bg-2': '#f6efff',
-        '--page-bg-3': '#fbf7ff',
-        '--page-bg-4': '#f2eaff',
-        '--page-bg-5': '#eadfff',
-        '--page-text': '#2b2137',
-        '--page-muted': '#6c5d85',
-        '--page-accent': '#7b5dd6',
-        '--panel-bg': '#f4ecff',
-        '--panel-text': '#2b2137',
-        '--panel-muted': '#6c5d85',
-        '--panel-input-bg': '#fbf6ff',
-      },
-    },
-    {
-      id: 'graphite',
-      name: 'Graphite Grid',
-      vars: {
-        '--gantt-font': '"Space Grotesk", system-ui, sans-serif',
-        '--page-font-body': '"Space Grotesk", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#f6f6f6',
-        '--gantt-left-bg': '#efefef',
-        '--gantt-header-bg': '#f7f7f7',
-        '--gantt-heading-bg': '#e6e6e6',
-        '--gantt-section-bg': 'rgba(220, 220, 220, 0.7)',
-        '--gantt-text': '#1e1e1e',
-        '--gantt-muted': '#5b5b5b',
-        '--gantt-grid-opacity': 0.12,
-        '--gantt-text-scale': 0.98,
-        '--gantt-section-scale': 0.95,
-        '--gantt-bar-radius': '6px',
-        '--page-bg-1': '#f0f0f0',
-        '--page-bg-2': '#f8f8f8',
-        '--page-bg-3': '#f5f5f5',
-        '--page-bg-4': '#ededed',
-        '--page-bg-5': '#e6e6e6',
-        '--page-text': '#1e1e1e',
-        '--page-muted': '#5b5b5b',
-        '--page-accent': '#e06d3a',
-        '--panel-bg': '#f4f4f4',
-        '--panel-text': '#1e1e1e',
-        '--panel-muted': '#5b5b5b',
-        '--panel-input-bg': '#ffffff',
-      },
-    },
-    {
-      id: 'blueprint',
-      name: 'Blueprint',
-      vars: {
-        '--gantt-font': '"IBM Plex Sans", system-ui, sans-serif',
-        '--page-font-body': '"IBM Plex Sans", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#0b1b32',
-        '--gantt-left-bg': '#10223d',
-        '--gantt-header-bg': '#0f213a',
-        '--gantt-heading-bg': '#142945',
-        '--gantt-section-bg': 'rgba(24, 48, 82, 0.9)',
-        '--gantt-text': '#e7f0ff',
-        '--gantt-muted': '#9fb4d1',
-        '--gantt-grid-opacity': 0.05,
-        '--gantt-text-scale': 0.98,
-        '--gantt-section-scale': 0.95,
-        '--gantt-bar-radius': '8px',
-        '--page-bg-1': '#0a1628',
-        '--page-bg-2': '#0f2036',
-        '--page-bg-3': '#0c1a2e',
-        '--page-bg-4': '#11243c',
-        '--page-bg-5': '#132742',
-        '--page-text': '#e7f0ff',
-        '--page-muted': '#9fb4d1',
-        '--page-accent': '#75a7ff',
-        '--panel-bg': '#121f33',
-        '--panel-text': '#e7f0ff',
-        '--panel-muted': '#9fb4d1',
-        '--panel-input-bg': '#1b2b45',
-      },
-    },
-    {
-      id: 'archivist',
-      name: 'Archivist',
-      vars: {
-        '--gantt-font': '"Source Sans 3", system-ui, sans-serif',
-        '--page-font-body': '"Source Sans 3", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#fbf7ef',
-        '--gantt-left-bg': '#f3ede2',
-        '--gantt-header-bg': '#faf4ea',
-        '--gantt-heading-bg': '#efe4d4',
-        '--gantt-section-bg': 'rgba(227, 214, 196, 0.7)',
-        '--gantt-text': '#2b2620',
-        '--gantt-muted': '#6f6457',
-        '--gantt-grid-opacity': 0.09,
-        '--gantt-text-scale': 1,
-        '--gantt-section-scale': 1,
-        '--gantt-bar-radius': '12px',
-        '--page-bg-1': '#f3eadc',
-        '--page-bg-2': '#f8f0e5',
-        '--page-bg-3': '#fbf4ea',
-        '--page-bg-4': '#efe4d5',
-        '--page-bg-5': '#e7d9c7',
-        '--page-text': '#2b2620',
-        '--page-muted': '#6f6457',
-        '--page-accent': '#b4683b',
-        '--panel-bg': '#f6efe3',
-        '--panel-text': '#2b2620',
-        '--panel-muted': '#6f6457',
-        '--panel-input-bg': '#fff7ef',
-      },
-    },
-    {
-      id: 'terra',
-      name: 'Terra',
-      vars: {
-        '--gantt-font': '"Work Sans", system-ui, sans-serif',
-        '--page-font-body': '"Work Sans", system-ui, sans-serif',
-        '--page-font-heading': '"Fraunces", serif',
-        '--gantt-bg': '#f6efe6',
-        '--gantt-left-bg': '#efe5d7',
-        '--gantt-header-bg': '#f5ece1',
-        '--gantt-heading-bg': '#e8d9c6',
-        '--gantt-section-bg': 'rgba(225, 205, 179, 0.75)',
-        '--gantt-text': '#2b241d',
-        '--gantt-muted': '#746558',
-        '--gantt-grid-opacity': 0.08,
-        '--gantt-text-scale': 1,
-        '--gantt-section-scale': 0.98,
-        '--gantt-bar-radius': '10px',
-        '--page-bg-1': '#efe2d0',
-        '--page-bg-2': '#f6ecdf',
-        '--page-bg-3': '#f8f0e6',
-        '--page-bg-4': '#eadac6',
-        '--page-bg-5': '#e0cfba',
-        '--page-text': '#2b241d',
-        '--page-muted': '#746558',
-        '--page-accent': '#c06b3f',
-        '--panel-bg': '#f2e6d7',
-        '--panel-text': '#2b241d',
-        '--panel-muted': '#746558',
-        '--panel-input-bg': '#fbf2e8',
-      },
-    },
-  ];
-
   const [projectName, setProjectName] = useState('Title');
   const [projectSubtitle, setProjectSubtitle] = useState('Thesis roadmap and milestones');
   const [tasks, setTasks] = useState(initialTasks);
@@ -763,14 +473,36 @@ export default function App() {
     setMarkers((prev) => prev.filter((m) => m.id !== id));
   };
 
+  const getTaskProgress = (task) => {
+    if (!task.progressEnabled) return null;
+    if (task.progressMode === 'subtasks') {
+      const subtasks = task.subtasks || [];
+      if (subtasks.length === 0) return 0;
+      const completed = subtasks.filter((st) => st.completed).length;
+      return Math.round((completed / subtasks.length) * 100);
+    }
+    return task.progressManual ?? 0;
+  };
+
   const selectedTask = tasks.find((task) => task.id === selectedId);
   const selectedMilestone = milestones.find((m) => m.id === selectedMilestoneId);
   const sectionsWithTasks = useMemo(() => {
-    const list = sections.map((section) => ({
-      ...section,
-      tasks: tasks.filter((task) => task.sectionId === section.id),
-      milestones: milestones.filter((m) => m.sectionId === section.id),
-    }));
+    const computeSectionProgress = (sectionTasks) => {
+      const tracked = sectionTasks.filter((t) => t.progressEnabled);
+      if (tracked.length === 0) return null;
+      const sum = tracked.reduce((acc, t) => acc + getTaskProgress(t), 0);
+      return Math.round(sum / tracked.length);
+    };
+
+    const list = sections.map((section) => {
+      const sectionTasks = tasks.filter((task) => task.sectionId === section.id);
+      return {
+        ...section,
+        tasks: sectionTasks,
+        milestones: milestones.filter((m) => m.sectionId === section.id),
+        progress: computeSectionProgress(sectionTasks),
+      };
+    });
     const unassignedTasks = tasks.filter((task) => !task.sectionId);
     const unassignedMilestones = milestones.filter((m) => !m.sectionId);
     if (unassignedTasks.length > 0 || unassignedMilestones.length > 0) {
@@ -779,6 +511,7 @@ export default function App() {
         name: 'Unassigned',
         tasks: unassignedTasks,
         milestones: unassignedMilestones,
+        progress: computeSectionProgress(unassignedTasks),
       });
     }
     return list;
@@ -1121,6 +854,9 @@ export default function App() {
                       >
                         <span className="dot" style={{ backgroundColor: section.color }} />
                         <span>{section.name}</span>
+                        {section.progress !== null && (
+                          <span className="section-progress-badge">{section.progress}%</span>
+                        )}
                       </div>
                       {section.tasks.map((task) => (
                         <button
@@ -1144,7 +880,15 @@ export default function App() {
                         >
                           <span className="dot" style={{ backgroundColor: task.color }} />
                           <span className="task-text">
-                            <span className="task-name">{task.name}</span>
+                            <span className="task-name">
+                              {task.name}
+                              {(() => {
+                                const progress = getTaskProgress(task);
+                                return progress !== null ? (
+                                  <span className="task-progress-badge">{progress}%</span>
+                                ) : null;
+                              })()}
+                            </span>
                             <span className="task-date">
                               {task.start} → {task.end}
                             </span>
@@ -1312,6 +1056,15 @@ export default function App() {
                               onPointerDown={(event) => handleBarPointerDown(event, task, 'move')}
                               onClick={() => handleBarClick(task.id)}
                             >
+                              {(() => {
+                                const progress = getTaskProgress(task);
+                                return progress !== null && progress > 0 ? (
+                                  <div
+                                    className="bar-progress"
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                ) : null;
+                              })()}
                               <div
                                 className="handle left"
                                 onPointerDown={(event) =>

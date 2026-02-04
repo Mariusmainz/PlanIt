@@ -7,6 +7,14 @@ export const initialTasks = [
     color: '#f4b740',
     description: 'Align on scope, define research questions, and clarify deliverables.',
     sectionId: 's1',
+    progressEnabled: true,
+    progressMode: 'subtasks',
+    progressManual: 0,
+    subtasks: [
+      { id: 'st1', name: 'Define research questions', completed: true },
+      { id: 'st2', name: 'Stakeholder interviews', completed: false },
+      { id: 'st3', name: 'Write scope document', completed: false },
+    ],
   },
   {
     id: 't2',

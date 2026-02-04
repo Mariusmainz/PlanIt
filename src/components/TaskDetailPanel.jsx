@@ -65,6 +65,105 @@ export default function TaskDetailPanel({
               placeholder="Summarize goals, references, or deliverables for this task."
             />
           </label>
+          <label className="progress-toggle-label">
+            <input
+              type="checkbox"
+              checked={!!task.progressEnabled}
+              onChange={(event) => updateTask(task.id, { progressEnabled: event.target.checked })}
+            />
+            Track progress
+          </label>
+          {task.progressEnabled && (
+            <>
+              <div className="mode-toggle">
+                <span>Mode</span>
+                {[
+                  ['manual', 'Manual'],
+                  ['subtasks', 'Subtasks'],
+                ].map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={(task.progressMode || 'manual') === mode ? 'chip active' : 'chip'}
+                    onClick={() => updateTask(task.id, { progressMode: mode })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {(task.progressMode || 'manual') === 'manual' && (
+                <label>
+                  Progress ({task.progressManual ?? 0}%)
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={task.progressManual ?? 0}
+                    onChange={(event) =>
+                      updateTask(task.id, { progressManual: Number(event.target.value) })
+                    }
+                  />
+                </label>
+              )}
+              {task.progressMode === 'subtasks' && (
+                <div className="subtask-section">
+                  <div className="subtask-progress-label">
+                    {(() => {
+                      const subs = task.subtasks || [];
+                      const done = subs.filter((s) => s.completed).length;
+                      const pct = subs.length === 0 ? 0 : Math.round((done / subs.length) * 100);
+                      return `${done} of ${subs.length} complete (${pct}%)`;
+                    })()}
+                  </div>
+                  <div className="subtask-list">
+                    {(task.subtasks || []).map((sub) => (
+                      <div key={sub.id} className="subtask-item">
+                        <input
+                          type="checkbox"
+                          checked={sub.completed}
+                          onChange={() => {
+                            const updated = (task.subtasks || []).map((s) =>
+                              s.id === sub.id ? { ...s, completed: !s.completed } : s
+                            );
+                            updateTask(task.id, { subtasks: updated });
+                          }}
+                        />
+                        <span className={sub.completed ? 'subtask-name completed' : 'subtask-name'}>
+                          {sub.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="subtask-remove"
+                          onClick={() => {
+                            const updated = (task.subtasks || []).filter((s) => s.id !== sub.id);
+                            updateTask(task.id, { subtasks: updated });
+                          }}
+                          aria-label="Remove subtask"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="subtask-add">
+                    <input
+                      placeholder="Add a subtask..."
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        const name = event.target.value.trim();
+                        if (!name) return;
+                        const id = `st-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+                        const updated = [...(task.subtasks || []), { id, name, completed: false }];
+                        updateTask(task.id, { subtasks: updated });
+                        event.target.value = '';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
           <button className="ghost danger" type="button" onClick={onDelete}>
             Delete task
           </button>

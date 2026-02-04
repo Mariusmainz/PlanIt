@@ -33,19 +33,37 @@ export default function CustomizePanel({
               Reset to default
             </button>
           </div>
-          <label>
-            Layout theme
-            <select
-              value={activePresetId}
-              onChange={(event) => onSelectPreset(event.target.value)}
-            >
-              {presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="preset-grid">
+            {presets.map((preset) => (
+              <button
+                key={preset.id}
+                className={preset.id === activePresetId ? 'preset-card active' : 'preset-card'}
+                type="button"
+                onClick={() => onSelectPreset(preset.id)}
+              >
+                <div className="preset-preview" style={{ background: preset.vars['--gantt-bg'] }}>
+                  <div
+                    className="preview-bar"
+                    style={{
+                      background: preset.vars['--page-accent'],
+                      borderRadius: preset.vars['--gantt-bar-radius'],
+                      boxShadow: preset.vars['--gantt-bar-shadow'],
+                    }}
+                  />
+                  <div
+                    className="preview-bar short"
+                    style={{
+                      background: preset.vars['--page-bg-1'],
+                      borderRadius: preset.vars['--gantt-bar-radius'],
+                      boxShadow: preset.vars['--gantt-bar-shadow'],
+                    }}
+                  />
+                </div>
+                <span className="preset-name">{preset.name}</span>
+                <span className="preset-desc">{preset.description}</span>
+              </button>
+            ))}
+          </div>
           <label>
             Roadmap font
             <select
