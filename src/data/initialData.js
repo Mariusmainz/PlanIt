@@ -50,6 +50,7 @@ export const initialMilestones = [
     date: '2026-02-14',
     color: '#f78883',
     sectionId: 's1',
+    symbol: 'diamond',
   },
 ];
 

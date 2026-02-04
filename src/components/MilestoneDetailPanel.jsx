@@ -51,6 +51,21 @@ export default function MilestoneDetailPanel({
               ))}
             </select>
           </label>
+          <label>
+            Symbol
+            <select
+              value={milestone.symbol || 'diamond'}
+              onChange={(event) => updateMilestone(milestone.id, { symbol: event.target.value })}
+            >
+              {['diamond', 'circle', 'square', 'triangle', 'star', 'flag', 'hex'].map(
+                (symbol) => (
+                <option key={symbol} value={symbol}>
+                  {symbol[0].toUpperCase() + symbol.slice(1)}
+                </option>
+                )
+              )}
+            </select>
+          </label>
           <button className="ghost danger" type="button" onClick={onDelete}>
             Delete milestone
           </button>

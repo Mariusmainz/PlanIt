@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ControlPanel from './components/ControlPanel';
+import CustomizePanel from './components/CustomizePanel';
 import MilestoneDetailPanel from './components/MilestoneDetailPanel';
 import TaskDetailPanel from './components/TaskDetailPanel';
 import { initialMilestones, initialSections, initialTasks, palette } from './data/initialData';
@@ -12,10 +13,307 @@ import {
   formatMonthLabel,
   parseDateUTC,
 } from './utils/date';
-import { buildCsv, downloadFile, openPrintWindow } from './utils/exporters';
+import {
+  buildCsv,
+  buildExportSvg,
+  downloadFile,
+  downloadPng,
+  openPrintWindow,
+} from './utils/exporters';
 
 export default function App() {
-  const [projectName, setProjectName] = useState('PlanIt');
+  const themePresets = [
+    {
+      id: 'sunset',
+      name: 'Sunset Studio',
+      vars: {
+        '--gantt-font': '"Space Grotesk", system-ui, sans-serif',
+        '--page-font-body': '"Space Grotesk", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#fffefb',
+        '--gantt-left-bg': '#fff9f1',
+        '--gantt-header-bg': '#fffdf8',
+        '--gantt-heading-bg': '#fff3e4',
+        '--gantt-section-bg': 'rgba(255, 227, 198, 0.6)',
+        '--gantt-text': '#1c1a17',
+        '--gantt-muted': '#5f5a55',
+        '--gantt-grid-opacity': 0.06,
+        '--gantt-text-scale': 1,
+        '--gantt-section-scale': 1,
+        '--gantt-bar-radius': '11px',
+        '--page-bg-1': '#ffe7c2',
+        '--page-bg-2': '#ffdfdb',
+        '--page-bg-3': '#fff6ea',
+        '--page-bg-4': '#f1e8dd',
+        '--page-bg-5': '#efe4d6',
+        '--page-text': '#1c1a17',
+        '--page-muted': '#5f5a55',
+        '--page-accent': '#e06d3a',
+        '--panel-bg': '#f8f3ec',
+        '--panel-text': '#1c1a17',
+        '--panel-muted': '#5f5a55',
+        '--panel-input-bg': '#fffdf9',
+      },
+    },
+    {
+      id: 'ink',
+      name: 'Ink & Linen',
+      vars: {
+        '--gantt-font': '"IBM Plex Sans", system-ui, sans-serif',
+        '--page-font-body': '"IBM Plex Sans", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#f8f6f2',
+        '--gantt-left-bg': '#f1eee7',
+        '--gantt-header-bg': '#f9f7f2',
+        '--gantt-heading-bg': '#f0ece4',
+        '--gantt-section-bg': 'rgba(220, 211, 197, 0.7)',
+        '--gantt-text': '#151515',
+        '--gantt-muted': '#5e5b55',
+        '--gantt-grid-opacity': 0.08,
+        '--gantt-text-scale': 0.98,
+        '--gantt-section-scale': 0.98,
+        '--gantt-bar-radius': '8px',
+        '--page-bg-1': '#e7eef8',
+        '--page-bg-2': '#f2efe8',
+        '--page-bg-3': '#f8f5ee',
+        '--page-bg-4': '#efe9de',
+        '--page-bg-5': '#eae1d4',
+        '--page-text': '#151515',
+        '--page-muted': '#5e5b55',
+        '--page-accent': '#3b6ea5',
+        '--panel-bg': '#f3efe7',
+        '--panel-text': '#151515',
+        '--panel-muted': '#5e5b55',
+        '--panel-input-bg': '#fffaf2',
+      },
+    },
+    {
+      id: 'mint',
+      name: 'Mint Graph',
+      vars: {
+        '--gantt-font': '"Work Sans", system-ui, sans-serif',
+        '--page-font-body': '"Work Sans", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#f7fbf9',
+        '--gantt-left-bg': '#eef7f2',
+        '--gantt-header-bg': '#f4faf7',
+        '--gantt-heading-bg': '#e8f5ef',
+        '--gantt-section-bg': 'rgba(212, 241, 229, 0.7)',
+        '--gantt-text': '#16332c',
+        '--gantt-muted': '#4f6a62',
+        '--gantt-grid-opacity': 0.05,
+        '--gantt-text-scale': 1,
+        '--gantt-section-scale': 1,
+        '--gantt-bar-radius': '14px',
+        '--page-bg-1': '#d7f3ea',
+        '--page-bg-2': '#f2efe6',
+        '--page-bg-3': '#f8f6ee',
+        '--page-bg-4': '#eff3e8',
+        '--page-bg-5': '#e7efe3',
+        '--page-text': '#16332c',
+        '--page-muted': '#4f6a62',
+        '--page-accent': '#2a9d8f',
+        '--panel-bg': '#eef6f1',
+        '--panel-text': '#16332c',
+        '--panel-muted': '#4f6a62',
+        '--panel-input-bg': '#f7fbf9',
+      },
+    },
+    {
+      id: 'night',
+      name: 'Midnight Ledger',
+      vars: {
+        '--gantt-font': '"IBM Plex Sans", system-ui, sans-serif',
+        '--page-font-body': '"IBM Plex Sans", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#0f1419',
+        '--gantt-left-bg': '#141b22',
+        '--gantt-header-bg': '#101820',
+        '--gantt-heading-bg': '#18212a',
+        '--gantt-section-bg': 'rgba(30, 42, 52, 0.9)',
+        '--gantt-text': '#f4f7fb',
+        '--gantt-muted': '#a6b2bd',
+        '--gantt-grid-opacity': 0.04,
+        '--gantt-text-scale': 0.98,
+        '--gantt-section-scale': 0.95,
+        '--gantt-bar-radius': '10px',
+        '--page-bg-1': '#0b1117',
+        '--page-bg-2': '#101923',
+        '--page-bg-3': '#0f141a',
+        '--page-bg-4': '#121b24',
+        '--page-bg-5': '#151f2a',
+        '--page-text': '#f4f7fb',
+        '--page-muted': '#b5c0cb',
+        '--page-accent': '#8ab4ff',
+        '--panel-bg': '#141b22',
+        '--panel-text': '#f4f7fb',
+        '--panel-muted': '#b5c0cb',
+        '--panel-input-bg': '#1b2430',
+      },
+    },
+    {
+      id: 'orchid',
+      name: 'Orchid Draft',
+      vars: {
+        '--gantt-font': '"Source Sans 3", system-ui, sans-serif',
+        '--page-font-body': '"Source Sans 3", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#fbf6ff',
+        '--gantt-left-bg': '#f3ecff',
+        '--gantt-header-bg': '#f8f2ff',
+        '--gantt-heading-bg': '#efe3ff',
+        '--gantt-section-bg': 'rgba(230, 214, 255, 0.7)',
+        '--gantt-text': '#2b2137',
+        '--gantt-muted': '#6c5d85',
+        '--gantt-grid-opacity': 0.06,
+        '--gantt-text-scale': 1,
+        '--gantt-section-scale': 1,
+        '--gantt-bar-radius': '16px',
+        '--page-bg-1': '#efe2ff',
+        '--page-bg-2': '#f6efff',
+        '--page-bg-3': '#fbf7ff',
+        '--page-bg-4': '#f2eaff',
+        '--page-bg-5': '#eadfff',
+        '--page-text': '#2b2137',
+        '--page-muted': '#6c5d85',
+        '--page-accent': '#7b5dd6',
+        '--panel-bg': '#f4ecff',
+        '--panel-text': '#2b2137',
+        '--panel-muted': '#6c5d85',
+        '--panel-input-bg': '#fbf6ff',
+      },
+    },
+    {
+      id: 'graphite',
+      name: 'Graphite Grid',
+      vars: {
+        '--gantt-font': '"Space Grotesk", system-ui, sans-serif',
+        '--page-font-body': '"Space Grotesk", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#f6f6f6',
+        '--gantt-left-bg': '#efefef',
+        '--gantt-header-bg': '#f7f7f7',
+        '--gantt-heading-bg': '#e6e6e6',
+        '--gantt-section-bg': 'rgba(220, 220, 220, 0.7)',
+        '--gantt-text': '#1e1e1e',
+        '--gantt-muted': '#5b5b5b',
+        '--gantt-grid-opacity': 0.12,
+        '--gantt-text-scale': 0.98,
+        '--gantt-section-scale': 0.95,
+        '--gantt-bar-radius': '6px',
+        '--page-bg-1': '#f0f0f0',
+        '--page-bg-2': '#f8f8f8',
+        '--page-bg-3': '#f5f5f5',
+        '--page-bg-4': '#ededed',
+        '--page-bg-5': '#e6e6e6',
+        '--page-text': '#1e1e1e',
+        '--page-muted': '#5b5b5b',
+        '--page-accent': '#e06d3a',
+        '--panel-bg': '#f4f4f4',
+        '--panel-text': '#1e1e1e',
+        '--panel-muted': '#5b5b5b',
+        '--panel-input-bg': '#ffffff',
+      },
+    },
+    {
+      id: 'blueprint',
+      name: 'Blueprint',
+      vars: {
+        '--gantt-font': '"IBM Plex Sans", system-ui, sans-serif',
+        '--page-font-body': '"IBM Plex Sans", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#0b1b32',
+        '--gantt-left-bg': '#10223d',
+        '--gantt-header-bg': '#0f213a',
+        '--gantt-heading-bg': '#142945',
+        '--gantt-section-bg': 'rgba(24, 48, 82, 0.9)',
+        '--gantt-text': '#e7f0ff',
+        '--gantt-muted': '#9fb4d1',
+        '--gantt-grid-opacity': 0.05,
+        '--gantt-text-scale': 0.98,
+        '--gantt-section-scale': 0.95,
+        '--gantt-bar-radius': '8px',
+        '--page-bg-1': '#0a1628',
+        '--page-bg-2': '#0f2036',
+        '--page-bg-3': '#0c1a2e',
+        '--page-bg-4': '#11243c',
+        '--page-bg-5': '#132742',
+        '--page-text': '#e7f0ff',
+        '--page-muted': '#9fb4d1',
+        '--page-accent': '#75a7ff',
+        '--panel-bg': '#121f33',
+        '--panel-text': '#e7f0ff',
+        '--panel-muted': '#9fb4d1',
+        '--panel-input-bg': '#1b2b45',
+      },
+    },
+    {
+      id: 'archivist',
+      name: 'Archivist',
+      vars: {
+        '--gantt-font': '"Source Sans 3", system-ui, sans-serif',
+        '--page-font-body': '"Source Sans 3", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#fbf7ef',
+        '--gantt-left-bg': '#f3ede2',
+        '--gantt-header-bg': '#faf4ea',
+        '--gantt-heading-bg': '#efe4d4',
+        '--gantt-section-bg': 'rgba(227, 214, 196, 0.7)',
+        '--gantt-text': '#2b2620',
+        '--gantt-muted': '#6f6457',
+        '--gantt-grid-opacity': 0.09,
+        '--gantt-text-scale': 1,
+        '--gantt-section-scale': 1,
+        '--gantt-bar-radius': '12px',
+        '--page-bg-1': '#f3eadc',
+        '--page-bg-2': '#f8f0e5',
+        '--page-bg-3': '#fbf4ea',
+        '--page-bg-4': '#efe4d5',
+        '--page-bg-5': '#e7d9c7',
+        '--page-text': '#2b2620',
+        '--page-muted': '#6f6457',
+        '--page-accent': '#b4683b',
+        '--panel-bg': '#f6efe3',
+        '--panel-text': '#2b2620',
+        '--panel-muted': '#6f6457',
+        '--panel-input-bg': '#fff7ef',
+      },
+    },
+    {
+      id: 'terra',
+      name: 'Terra',
+      vars: {
+        '--gantt-font': '"Work Sans", system-ui, sans-serif',
+        '--page-font-body': '"Work Sans", system-ui, sans-serif',
+        '--page-font-heading': '"Fraunces", serif',
+        '--gantt-bg': '#f6efe6',
+        '--gantt-left-bg': '#efe5d7',
+        '--gantt-header-bg': '#f5ece1',
+        '--gantt-heading-bg': '#e8d9c6',
+        '--gantt-section-bg': 'rgba(225, 205, 179, 0.75)',
+        '--gantt-text': '#2b241d',
+        '--gantt-muted': '#746558',
+        '--gantt-grid-opacity': 0.08,
+        '--gantt-text-scale': 1,
+        '--gantt-section-scale': 0.98,
+        '--gantt-bar-radius': '10px',
+        '--page-bg-1': '#efe2d0',
+        '--page-bg-2': '#f6ecdf',
+        '--page-bg-3': '#f8f0e6',
+        '--page-bg-4': '#eadac6',
+        '--page-bg-5': '#e0cfba',
+        '--page-text': '#2b241d',
+        '--page-muted': '#746558',
+        '--page-accent': '#c06b3f',
+        '--panel-bg': '#f2e6d7',
+        '--panel-text': '#2b241d',
+        '--panel-muted': '#746558',
+        '--panel-input-bg': '#fbf2e8',
+      },
+    },
+  ];
+
+  const [projectName, setProjectName] = useState('Title');
   const [projectSubtitle, setProjectSubtitle] = useState('Thesis roadmap and milestones');
   const [tasks, setTasks] = useState(initialTasks);
   const [sections, setSections] = useState(initialSections);
@@ -23,6 +321,7 @@ export default function App() {
   const [paddingDays, setPaddingDays] = useState(3);
   const [exportFormat, setExportFormat] = useState('json');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [autoFit, setAutoFit] = useState(false);
   const [offDays, setOffDays] = useState(['2026-02-09', '2026-02-16']);
@@ -33,6 +332,7 @@ export default function App() {
     name: 'New milestone',
     date: formatDateUTC(Date.now()),
     sectionId: initialSections[0]?.id ?? '',
+    symbol: 'diamond',
   }));
   const [markers, setMarkers] = useState([]);
   const [newMarker, setNewMarker] = useState(() => ({
@@ -59,6 +359,9 @@ export default function App() {
   const [newTaskMode, setNewTaskMode] = useState('end');
   const [newTaskDuration, setNewTaskDuration] = useState(3);
   const [rowHeight, setRowHeight] = useState(56);
+  const [activeThemeId, setActiveThemeId] = useState(themePresets[0].id);
+  const [themeVars, setThemeVars] = useState(themePresets[0].vars);
+  const themeClass = 'theme-adaptive';
   const titleRef = useRef(null);
   const subtitleRef = useRef(null);
 
@@ -218,6 +521,21 @@ export default function App() {
   }, [projectName]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    body.classList.add('theme-adaptive');
+    Object.entries(themeVars).forEach(([key, value]) => {
+      if (key.startsWith('--page-') || key.startsWith('--panel-')) {
+        root.style.setProperty(key, String(value));
+      }
+    });
+    return () => {
+      body.classList.remove('theme-adaptive');
+    };
+  }, [themeVars]);
+
+
+  useEffect(() => {
     if (!subtitleRef.current) return;
     subtitleRef.current.style.height = 'auto';
     subtitleRef.current.style.height = `${subtitleRef.current.scrollHeight}px`;
@@ -357,7 +675,6 @@ export default function App() {
       sectionId: newTask.sectionId || sections[0]?.id || '',
     };
     setTasks((prev) => [...prev, task]);
-    selectTask(id);
   };
 
   const addSection = () => {
@@ -423,6 +740,7 @@ export default function App() {
       date: formatDateUTC(dateMs),
       color: sections.find((s) => s.id === sectionId)?.color || palette[0],
       sectionId,
+      symbol: newMilestone.symbol || 'diamond',
     };
     setMilestones((prev) => [...prev, milestone]);
     selectMilestone(id);
@@ -477,6 +795,18 @@ export default function App() {
       })
       .filter(Boolean);
   }, [markers, rangeStartMs, days.length]);
+
+  const exportRows = useMemo(() => {
+    const rows = [];
+    sectionsWithTasks.forEach((section) => {
+      rows.push({ type: 'section', section });
+      section.tasks.forEach((task) => rows.push({ type: 'task', task }));
+      section.milestones.forEach((milestone) =>
+        rows.push({ type: 'milestone', milestone })
+      );
+    });
+    return rows;
+  }, [sectionsWithTasks]);
 
   const handleBarPointerDown = (event, task, mode) => {
     event.preventDefault();
@@ -602,47 +932,63 @@ export default function App() {
     setDragOver(null);
   };
 
-  const handleExport = (format = exportFormat) => {
+  const handleExport = async (format = exportFormat) => {
     if (tasks.length === 0) return;
     const baseName = projectName.trim().replace(/\s+/g, '-').toLowerCase() || 'project-plan';
-    if (format === 'json') {
-      const payload = { project: projectName, exportedAt: new Date().toISOString(), tasks, milestones, markers };
-      downloadFile({
-        name: `${baseName}.json`,
-        mime: 'application/json',
-        contents: JSON.stringify(payload, null, 2),
+    if (format === 'svg') {
+      const { svg } = buildExportSvg({
+        projectName,
+        projectSubtitle,
+        days,
+        rows: exportRows,
+        markerIndexes,
+        offDayIndexes,
       });
+      downloadFile({
+        name: `${baseName}.svg`,
+        mime: 'image/svg+xml',
+        contents: svg,
+      });
+      return;
+    }
+    if (format === 'png') {
+      const { svg } = buildExportSvg({
+        projectName,
+        projectSubtitle,
+        days,
+        rows: exportRows,
+        markerIndexes,
+        offDayIndexes,
+      });
+      await downloadPng({ name: `${baseName}.png`, svg });
       return;
     }
     if (format === 'csv') {
       downloadFile({
         name: `${baseName}.csv`,
         mime: 'text/csv',
-        contents: buildCsv(tasks),
+        contents: buildCsv({ tasks, sections, milestones }),
       });
       return;
     }
-    if (format === 'tsv') {
-      const header = ['Task', 'Start', 'End', 'Color'];
-      const rows = tasks.map((task) => [task.name, task.start, task.end, task.color]);
-      const payload = [header, ...rows].map((row) => row.join('\t')).join('\n');
-      downloadFile({
-        name: `${baseName}.tsv`,
-        mime: 'text/tab-separated-values',
-        contents: payload,
-      });
-    }
     if (format === 'pdf') {
-      openPrintWindow({ projectName, projectSubtitle, days, tasks });
+      openPrintWindow({
+        projectName,
+        projectSubtitle,
+        days,
+        rows: exportRows,
+        markerIndexes,
+        offDayIndexes,
+      });
     }
   };
 
   return (
-    <div className="app">
+    <div className={`app ${themeClass}`}>
       <header className="hero">
         <div>
-          <p className="eyebrow">Project Plan Studio</p>
-          <h1>Shape your roadmap with a tactile Gantt editor.</h1>
+          <p className="eyebrow">RoadMate</p>
+          <h1>Shape your roadmap effortlessly.</h1>
           <p className="sub">
             Drag to move, stretch to resize, and keep your plan clean with automatic formatting.
           </p>
@@ -664,6 +1010,9 @@ export default function App() {
           </div>
         </div>
         <div className="export-panel">
+          <button className="ghost" type="button" onClick={() => setIsCustomizeOpen(true)}>
+            Customize
+          </button>
           <button
             className="primary"
             type="button"
@@ -674,10 +1023,10 @@ export default function App() {
           {isExportOpen && (
             <div className="export-popover">
               {[
-                ['json', 'JSON'],
-                ['csv', 'CSV'],
-                ['tsv', 'TSV'],
+                ['png', 'PNG'],
+                ['svg', 'SVG'],
                 ['pdf', 'PDF (print)'],
+                ['csv', 'CSV'],
               ].map(([format, label]) => (
                 <button
                   key={format}
@@ -732,7 +1081,10 @@ export default function App() {
             <div
               className="gantt"
               ref={ganttRef}
-              style={{ '--task-row-height': `${rowHeight}px` }}
+              style={{
+                '--task-row-height': `${rowHeight}px`,
+                ...themeVars,
+              }}
             >
               <div className="gantt-left">
                 <div className="gantt-header">Tasks</div>
@@ -812,7 +1164,10 @@ export default function App() {
                           onDragOver={(event) => event.preventDefault()}
                           onDrop={handleListDragEnd}
                         >
-                          <span className="diamond" style={{ backgroundColor: milestone.color }} />
+                          <span
+                            className={`milestone-shape ${milestone.symbol || 'diamond'}`}
+                            style={{ backgroundColor: milestone.color }}
+                          />
                           <span className="task-text">
                             <span className="task-name">{milestone.name}</span>
                             <span className="task-date">{milestone.date}</span>
@@ -987,8 +1342,8 @@ export default function App() {
                             <div
                               className={
                                 milestone.id === selectedMilestoneId
-                                  ? 'milestone-marker active'
-                                  : 'milestone-marker'
+                                  ? `milestone-marker ${milestone.symbol || 'diamond'} active`
+                                  : `milestone-marker ${milestone.symbol || 'diamond'}`
                               }
                               style={{
                                 left: `${left}%`,
@@ -1059,6 +1414,31 @@ export default function App() {
         addMarker={addMarker}
         markers={markers}
         removeMarker={removeMarker}
+      />
+
+      <CustomizePanel
+        isOpen={isCustomizeOpen}
+        onClose={() => setIsCustomizeOpen(false)}
+        presets={themePresets}
+        activePresetId={activeThemeId}
+        onSelectPreset={(id) => {
+          const preset = themePresets.find((entry) => entry.id === id);
+          if (!preset) return;
+          setActiveThemeId(id);
+          setThemeVars(preset.vars);
+        }}
+        theme={themeVars}
+        onUpdateTheme={(patch) =>
+          setThemeVars((prev) => ({
+            ...prev,
+            ...patch,
+          }))
+        }
+        onReset={() => {
+          const preset = themePresets[0];
+          setActiveThemeId(preset.id);
+          setThemeVars(preset.vars);
+        }}
       />
 
       <TaskDetailPanel

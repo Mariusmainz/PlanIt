@@ -183,6 +183,23 @@ export default function ControlPanel({
                 ))}
               </select>
             </label>
+            <label>
+              Symbol
+              <select
+                value={newMilestone.symbol || 'diamond'}
+                onChange={(event) =>
+                  setNewMilestone((prev) => ({ ...prev, symbol: event.target.value }))
+                }
+              >
+                {['diamond', 'circle', 'square', 'triangle', 'star', 'flag', 'hex'].map(
+                  (symbol) => (
+                  <option key={symbol} value={symbol}>
+                    {symbol[0].toUpperCase() + symbol.slice(1)}
+                  </option>
+                  )
+                )}
+              </select>
+            </label>
             <button className="primary" type="button" onClick={addMilestone}>
               Add milestone
             </button>
